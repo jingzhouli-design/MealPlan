@@ -1,0 +1,198 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>MealPlan — Weekly Meal Planner</title>
+    <meta
+      name="description"
+      content="Plan seven days of meals and turn them into a shopping list."
+    />
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link
+      href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,560;9..144,680&family=Nunito:wght@500;700;800&display=swap"
+      rel="stylesheet"
+    />
+    <link rel="stylesheet" href="styles.css" />
+    <link rel="icon" href="favicon.svg" type="image/svg+xml" />
+  </head>
+  <body>
+    <div class="app">
+      <header class="topbar">
+        <div class="brand">
+          <span class="logo" aria-hidden="true">
+            <svg width="36" height="36" viewBox="0 0 42 42">
+              <rect width="42" height="42" rx="14" fill="#1F9D62" />
+              <path d="M10 24c2.4 6 19.6 6 22 0" fill="none" stroke="#fff" stroke-width="2.2" stroke-linecap="round" />
+              <circle cx="16" cy="18" r="1.7" fill="#fff" />
+              <circle cx="21" cy="16.2" r="1.7" fill="#fff" />
+              <circle cx="26" cy="18" r="1.7" fill="#fff" />
+            </svg>
+          </span>
+          <div>
+            <h1>MealPlan</h1>
+            <p>Each recipe serves 2.</p>
+          </div>
+        </div>
+        <div class="week-switch">
+          <button type="button" class="nav-arrow" id="prev-week" aria-label="Previous week">‹</button>
+          <div class="week-title">
+            <h2 id="week-label">This week</h2>
+            <p id="week-relation">This week</p>
+          </div>
+          <button type="button" class="nav-arrow" id="next-week" aria-label="Next week">›</button>
+        </div>
+        <div class="week-actions">
+          <button type="button" id="copy-next" class="text-btn">Copy to next week</button>
+          <button type="button" id="clear-week" class="text-btn">Clear week</button>
+        </div>
+      </header>
+
+      <main class="workspace">
+        <section class="panel week-panel" aria-label="Week plan">
+          <div id="days" class="days"></div>
+        </section>
+
+        <section class="panel library-panel" aria-label="Meal library">
+          <div class="panel-head library-head">
+            <div class="tabs" role="tablist" aria-label="Library">
+              <button type="button" class="tab" id="tab-meals" role="tab" aria-controls="meals-view" aria-selected="true" data-tab="meals">
+                Meals
+              </button>
+              <button type="button" class="tab" id="tab-ingredients" role="tab" aria-controls="ingredients-view" aria-selected="false" data-tab="ingredients" aria-label="Ingredients">
+                Ingredients <span class="count" id="ing-count" aria-hidden="true">0</span>
+              </button>
+            </div>
+            <p id="adding-hint" class="adding">Adding to <strong>Monday</strong></p>
+          </div>
+
+          <div id="meals-view" class="panel-scroll" role="tabpanel" aria-labelledby="tab-meals">
+            <div class="toolbar">
+              <label class="search">
+                <span class="sr">Search meals</span>
+                <input id="search" type="search" placeholder="Search meals" autocomplete="off" spellcheck="false" />
+              </label>
+              <button type="button" id="new-meal" class="text-btn solid">New meal</button>
+            </div>
+            <div id="filters" class="filters">
+              <button type="button" class="chip" data-clear-filters aria-pressed="true">All meals</button>
+              <button type="button" class="chip" data-filter="flag" data-value="favoritesOnly" aria-pressed="false">Favorites</button>
+              <div class="filter-group">
+                <span class="filter-label">Cuisine</span>
+                <button type="button" class="chip" data-filter="cuisine" data-value="chinese" aria-pressed="false">Chinese</button>
+                <button type="button" class="chip" data-filter="cuisine" data-value="western" aria-pressed="false">Western</button>
+              </div>
+              <div class="filter-group">
+                <span class="filter-label">Meal</span>
+                <button type="button" class="chip" data-filter="meal" data-value="lunch" aria-pressed="false">Lunch</button>
+                <button type="button" class="chip" data-filter="meal" data-value="dinner" aria-pressed="false">Dinner</button>
+              </div>
+              <div class="filter-group">
+                <span class="filter-label">Pace</span>
+                <button type="button" class="chip" data-filter="effort" data-value="quick" aria-pressed="false">Quick</button>
+                <button type="button" class="chip" data-filter="effort" data-value="slow" aria-pressed="false">Takes time</button>
+              </div>
+              <div class="filter-group">
+                <span class="filter-label">Type</span>
+                <button type="button" class="chip" data-filter="flag" data-value="frozen" aria-pressed="false">Frozen</button>
+                <button type="button" class="chip" data-filter="flag" data-value="convenience" aria-pressed="false">Convenience</button>
+              </div>
+            </div>
+            <p id="meal-count" class="result-count"></p>
+            <div id="meal-grid" class="meal-grid"></div>
+          </div>
+
+          <div id="ingredients-view" class="panel-scroll" role="tabpanel" aria-labelledby="tab-ingredients" hidden>
+            <div class="ing-toolbar">
+              <div class="view-switch" role="group" aria-label="Ingredient views">
+                <button type="button" data-view="dish" aria-pressed="true">By dish</button>
+                <button type="button" data-view="shopping" aria-pressed="false">Shopping list</button>
+                <button type="button" data-view="day" aria-pressed="false">By day</button>
+              </div>
+              <div class="view-actions">
+                <button type="button" id="export-png" class="text-btn solid">Export PNG</button>
+                <button type="button" id="copy-list" class="text-btn" hidden>Copy list</button>
+                <button type="button" id="clear-ticks" class="text-btn" hidden>Clear ticks</button>
+              </div>
+            </div>
+            <p id="view-blurb" class="result-count"></p>
+            <div id="ingredient-body"></div>
+          </div>
+        </section>
+      </main>
+    </div>
+
+    <div id="meal-dialog" class="modal" hidden>
+      <div class="modal-backdrop" data-close-modal></div>
+      <form id="meal-form" class="modal-card">
+        <div class="modal-body">
+          <h2 id="meal-dialog-title">Meal details</h2>
+          <p>Press Save and this card stays on this device.</p>
+          <div class="form-grid">
+            <label>Name
+              <input id="meal-name" type="text" maxlength="80" required />
+            </label>
+            <label>Emoji
+              <input id="meal-emoji" type="text" maxlength="8" />
+            </label>
+            <label>Cuisine
+              <select id="meal-cuisine">
+                <option value="chinese">Chinese</option>
+                <option value="western">Western</option>
+              </select>
+            </label>
+            <label>Minutes
+              <input id="meal-minutes" type="number" min="1" max="300" step="1" />
+            </label>
+          </div>
+          <fieldset class="choice-set">
+            <legend>Use it for</legend>
+            <div class="choice-row">
+              <label><input id="meal-lunch" type="checkbox" /> Lunch</label>
+              <label><input id="meal-dinner" type="checkbox" /> Dinner</label>
+              <label>Pace
+                <select id="meal-effort">
+                  <option value="quick">Quick</option>
+                  <option value="moderate">Relaxed</option>
+                  <option value="slow">Takes time</option>
+                </select>
+              </label>
+              <label><input id="meal-frozen" type="checkbox" /> Frozen</label>
+              <label><input id="meal-convenience" type="checkbox" /> Convenience</label>
+            </div>
+          </fieldset>
+          <label class="stack-field">Short description
+            <textarea id="meal-blurb" maxlength="180"></textarea>
+          </label>
+          <fieldset class="stack-field">
+            <legend>Ingredients</legend>
+            <div class="ing-columns" aria-hidden="true">
+              <span>Name</span>
+              <span>Amount</span>
+              <span>Unit</span>
+              <span>Aisle</span>
+              <span></span>
+            </div>
+            <div id="ingredient-rows" class="ingredient-editor"></div>
+            <button type="button" id="add-ingredient" class="icon-text">Add ingredient</button>
+            <label class="steps-field">Steps
+              <textarea id="meal-steps" maxlength="600"></textarea>
+            </label>
+          </fieldset>
+        </div>
+        <div class="modal-actions">
+          <p id="form-error" class="form-error"></p>
+          <button type="button" id="delete-meal" class="text-btn danger" hidden>Delete meal</button>
+          <button type="button" id="reset-meal" class="text-btn" hidden>Reset original</button>
+          <button type="button" id="cancel-meal" class="text-btn" data-close-modal>Cancel</button>
+          <button type="submit" class="text-btn solid">Save meal</button>
+        </div>
+      </form>
+    </div>
+
+    <div id="toast" role="status" aria-live="polite"></div>
+    <noscript>MealPlan needs JavaScript to plan your week.</noscript>
+    <script type="module" src="app.js"></script>
+  </body>
+</html>

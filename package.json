@@ -1,0 +1,47 @@
+{
+  "name": "mealplan",
+  "productName": "MealPlan",
+  "version": "1.0.0",
+  "private": true,
+  "description": "A bright weekly meal planner you can open in the browser or as a desktop app.",
+  "type": "module",
+  "main": "electron/main.js",
+  "scripts": {
+    "start": "electron .",
+    "web": "node scripts/serve.mjs",
+    "test": "node --test scripts/test-logic.mjs",
+    "uitest": "node scripts/ui-check.mjs",
+    "exe": "electron-builder --win portable"
+  },
+  "build": {
+    "appId": "com.mealplan.app",
+    "productName": "MealPlan",
+    "asar": true,
+    "npmRebuild": false,
+    "files": [
+      "electron/**/*",
+      "src/**/*",
+      "package.json"
+    ],
+    "directories": {
+      "output": "release"
+    },
+    "win": {
+      "target": [
+        {
+          "target": "portable",
+          "arch": ["x64"]
+        }
+      ],
+      "signAndEditExecutable": false
+    },
+    "portable": {
+      "artifactName": "MealPlan.exe"
+    }
+  },
+  "devDependencies": {
+    "electron": "^33.2.1",
+    "electron-builder": "^25.1.8",
+    "playwright": "^1.49.0"
+  }
+}
