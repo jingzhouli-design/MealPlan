@@ -8,15 +8,69 @@ export const DAYS = [
   { id: "fri", short: "Fri", label: "Friday" },
 ];
 
+// Grocery aisles, in the order you walk a typical store.
 export const CATEGORIES = [
   "Produce",
-  "Protein",
-  "Dairy & Eggs",
+  "Meat & Seafood",
+  "Dairy, Eggs & Tofu",
   "Bakery",
-  "Pantry",
+  "Rice, Pasta & Noodles",
+  "Canned & Dry Goods",
+  "Sauces & Condiments",
+  "Oils, Spices & Baking",
   "Frozen",
-  "Sauces & Seasoning",
 ];
+
+const FALLBACK_AISLE = "Canned & Dry Goods";
+
+// Older saves used broader groups; map them onto the aisles above.
+const LEGACY_AISLES = {
+  Protein: "Meat & Seafood",
+  "Dairy & Eggs": "Dairy, Eggs & Tofu",
+  Pantry: FALLBACK_AISLE,
+  "Sauces & Seasoning": "Sauces & Condiments",
+};
+
+const AISLE_BY_NAME = {
+  "soft tofu": "Dairy, Eggs & Tofu",
+  "firm tofu": "Dairy, Eggs & Tofu",
+  tofu: "Dairy, Eggs & Tofu",
+  "century egg": "Dairy, Eggs & Tofu",
+  rice: "Rice, Pasta & Noodles",
+  "cooked rice": "Rice, Pasta & Noodles",
+  "egg noodles": "Rice, Pasta & Noodles",
+  "wheat noodles": "Rice, Pasta & Noodles",
+  macaroni: "Rice, Pasta & Noodles",
+  penne: "Rice, Pasta & Noodles",
+  spaghetti: "Rice, Pasta & Noodles",
+  "all-purpose flour": "Oils, Spices & Baking",
+  flour: "Oils, Spices & Baking",
+  cornstarch: "Oils, Spices & Baking",
+  sugar: "Oils, Spices & Baking",
+  "rock sugar": "Oils, Spices & Baking",
+  "olive oil": "Oils, Spices & Baking",
+  "vegetable oil": "Oils, Spices & Baking",
+  "chili flakes": "Oils, Spices & Baking",
+  "dried chili": "Oils, Spices & Baking",
+  "dried oregano": "Oils, Spices & Baking",
+  "ground cumin": "Oils, Spices & Baking",
+  paprika: "Oils, Spices & Baking",
+  "sichuan pepper": "Oils, Spices & Baking",
+  "star anise": "Oils, Spices & Baking",
+  "white pepper": "Oils, Spices & Baking",
+  "black pepper": "Oils, Spices & Baking",
+  salt: "Oils, Spices & Baking",
+};
+
+/** Picks the aisle for an ingredient, upgrading old category names. */
+export function aisleFor(name, category) {
+  if (CATEGORIES.includes(category)) return category;
+  if (category in LEGACY_AISLES) {
+    const byName = AISLE_BY_NAME[String(name || "").trim().toLowerCase()];
+    return byName ?? LEGACY_AISLES[category];
+  }
+  return FALLBACK_AISLE;
+}
 
 const WEEKDAY_TO_ID = ["sun", "mon", "tue", "wed", "thu", "fri", "sat"];
 
@@ -433,7 +487,7 @@ function sanitizeIngredient(raw) {
   if (!raw || typeof raw.name !== "string" || !raw.name.trim()) return null;
   const qty = Number(raw.qty);
   if (!Number.isFinite(qty) || qty <= 0) return null;
-  const category = CATEGORIES.includes(raw.category) ? raw.category : "Pantry";
+  const category = aisleFor(raw.name, raw.category);
   const unit = typeof raw.unit === "string" && raw.unit.trim() ? raw.unit.trim() : "pcs";
   return {
     name: raw.name.trim(),

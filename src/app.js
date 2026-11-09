@@ -1,5 +1,7 @@
 import { MEALS } from "./meals.js";
-import { downloadWeekPng, weekSections } from "./export-png.js";
+import { downloadWeekPng, renderWeekCanvas, weekSections } from "./export-png.js";
+import { renderGroceryPages } from "./export-grocery.js";
+import { canvasesToPdf, downloadBlob } from "./pdf.js";
 import {
   DAYS,
   CATEGORIES,
@@ -78,6 +80,9 @@ const els = {
   viewBlurb: document.querySelector("#view-blurb"),
   ingredientBody: document.querySelector("#ingredient-body"),
   copyList: document.querySelector("#copy-list"),
+  groceryPdf: document.querySelector("#grocery-pdf"),
+  exportToggle: document.querySelector("#export-toggle"),
+  exportOptions: document.querySelector("#export-options"),
   clearTicks: document.querySelector("#clear-ticks"),
   clearWeek: document.querySelector("#clear-week"),
   copyNext: document.querySelector("#copy-next"),
@@ -318,7 +323,28 @@ function bindEvents() {
     renderIngredients();
     showToast("Ticks cleared");
   });
-  document.querySelector("#export-png").addEventListener("click", exportPng);
+  els.exportToggle.addEventListener("click", (event) => {
+    event.stopPropagation();
+    setExportMenu(els.exportOptions.hidden);
+  });
+  els.exportOptions.addEventListener("click", (event) => {
+    const option = event.target.closest("[data-export]");
+    if (!option) return;
+    setExportMenu(false);
+    if (option.dataset.export === "week-pdf") exportWeekPdf();
+    else if (option.dataset.export === "grocery-pdf") exportGroceryPdf();
+    else exportWeekPng();
+  });
+  document.addEventListener("click", (event) => {
+    if (!els.exportOptions.hidden && !event.target.closest(".export-menu")) setExportMenu(false);
+  });
+  document.addEventListener("keydown", (event) => {
+    if (event.key === "Escape" && !els.exportOptions.hidden) {
+      setExportMenu(false);
+      els.exportToggle.focus();
+    }
+  });
+  els.groceryPdf.addEventListener("click", exportGroceryPdf);
   els.clearWeek.addEventListener("click", onClearWeek);
 
   els.form.addEventListener("submit", (event) => {
@@ -660,6 +686,7 @@ function renderIngredients() {
   const count = plannedCount(state.plan);
   const view = state.ingredientView;
   els.copyList.hidden = view !== "shopping" || count === 0;
+  els.groceryPdf.hidden = view !== "shopping" || count === 0;
   els.clearTicks.hidden = view !== "shopping" || state.checked.size === 0;
 
   if (view === "dish") {
@@ -714,7 +741,7 @@ function renderShoppingView(byId) {
     0
   );
   els.viewBlurb.textContent = total
-    ? `Combined by aisle. ${ticked} of ${total} ticked off. Copy list skips ticked items.`
+    ? `Combined by aisle. ${ticked} of ${total} ticked off. Copy list and Grocery PDF skip ticked items.`
     : "Combined and sorted by aisle.";
 
   if (!total) {
@@ -951,15 +978,73 @@ function emptyIngredients(title, copy) {
     </div>`;
 }
 
-async function exportPng() {
+function setExportMenu(open) {
+  els.exportOptions.hidden = !open;
+  els.exportToggle.setAttribute("aria-expanded", String(open));
+  if (open) els.exportOptions.querySelector("button")?.focus();
+}
+
+function weekModel() {
+  return {
+    weekKey: state.weekKey,
+    weekLabel: formatWeekRange(state.weekKey),
+    relation: weekRelation(state.weekKey),
+    days: weekSections(state.weekKey, state.plan, mealsById()),
+  };
+}
+
+async function fontsReady() {
+  if (!document.fonts?.ready) return;
   try {
-    await downloadWeekPng({
+    await document.fonts.ready;
+  } catch {
+    // Fall back to system fonts.
+  }
+}
+
+async function exportWeekPdf() {
+  try {
+    await fontsReady();
+    const blob = await canvasesToPdf([renderWeekCanvas(weekModel())], {
+      title: `Meal plan ${state.weekKey}`,
+    });
+    downloadBlob(blob, `MealPlan-week-${state.weekKey}.pdf`);
+    showToast("Week plan PDF saved");
+  } catch {
+    showToast("Could not export the PDF");
+  }
+}
+
+async function exportGroceryPdf() {
+  try {
+    await fontsReady();
+    const all = shoppingList(state.plan, mealsById());
+    const groups = all
+      .map((group) => ({
+        category: group.category,
+        items: group.items.filter((item) => !state.checked.has(item.key)),
+      }))
+      .filter((group) => group.items.length);
+    const total = all.reduce((sum, group) => sum + group.items.length, 0);
+    const left = groups.reduce((sum, group) => sum + group.items.length, 0);
+    const pages = renderGroceryPages({
       weekKey: state.weekKey,
       weekLabel: formatWeekRange(state.weekKey),
-      relation: weekRelation(state.weekKey),
-      days: weekSections(state.weekKey, state.plan, mealsById()),
+      groups,
+      skipped: total - left,
     });
-    showToast("Week plan exported");
+    const blob = await canvasesToPdf(pages, { title: `Grocery list ${state.weekKey}` });
+    downloadBlob(blob, `MealPlan-groceries-${state.weekKey}.pdf`);
+    showToast(left === 1 ? "Grocery list saved (1 item)" : `Grocery list saved (${left} items)`);
+  } catch {
+    showToast("Could not export the grocery list");
+  }
+}
+
+async function exportWeekPng() {
+  try {
+    await downloadWeekPng(weekModel());
+    showToast("Week plan image saved");
   } catch {
     showToast("Could not export the PNG");
   }

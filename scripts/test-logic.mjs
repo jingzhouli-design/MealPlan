@@ -27,6 +27,7 @@ import {
   sanitizeMeal,
   realignMondayWeeks,
   shoppingText,
+  aisleFor,
 } from "../src/logic.js";
 
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
@@ -287,7 +288,7 @@ test("custom meals need a name, a meal time, and a real ingredient", () => {
   assert.equal(clean.instructions, "Boil the noodles.");
   assert.equal(clean.ingredients[0].name, "Noodles");
   assert.equal(clean.ingredients[0].qty, 200);
-  assert.equal(clean.ingredients[0].category, "Pantry");
+  assert.equal(clean.ingredients[0].category, "Canned & Dry Goods");
 });
 
 test("copied shopping text leaves out ticked items", () => {
@@ -303,4 +304,18 @@ test("copied shopping text leaves out ticked items", () => {
   const others = keys.length - 1;
   assert.equal((text.match(/^- /gm) || []).length, others);
   assert.match(shoppingText(groups, new Set(keys)), /Everything is ticked off/);
+});
+
+test("old categories move to store aisles", () => {
+  assert.equal(aisleFor("Spaghetti", "Pantry"), "Rice, Pasta & Noodles");
+  assert.equal(aisleFor("Paprika", "Pantry"), "Oils, Spices & Baking");
+  assert.equal(aisleFor("Canned tuna", "Pantry"), "Canned & Dry Goods");
+  assert.equal(aisleFor("Soft tofu", "Protein"), "Dairy, Eggs & Tofu");
+  assert.equal(aisleFor("Pork belly", "Protein"), "Meat & Seafood");
+  assert.equal(aisleFor("Soy sauce", "Sauces & Seasoning"), "Sauces & Condiments");
+  assert.equal(aisleFor("Milk", "Dairy & Eggs"), "Dairy, Eggs & Tofu");
+  assert.equal(aisleFor("Kimchi", "Produce"), "Produce");
+  for (const meal of MEALS) {
+    for (const item of meal.ingredients) assert.ok(CATEGORIES.includes(item.category), item.name);
+  }
 });

@@ -126,7 +126,7 @@ async function checkPage(page, label) {
   assert.match(shopping, /Egg/);
   assert.match(shopping, /6 pcs/);
   assert.match(shopping, /Produce/);
-  assert.match(shopping, /Dairy & Eggs/);
+  assert.match(shopping, /Dairy, Eggs & Tofu/);
 
   await page.getByRole("button", { name: "By day" }).click();
   const byDay = await page.locator("#ingredient-body").innerText();
@@ -177,9 +177,26 @@ async function checkPage(page, label) {
   assert.match(await page.locator("#week-relation").innerText(), /This week/);
   assert.equal(await page.locator('[data-day="thu"] .planned-name').innerText(), "Greek Salad");
 
-  const downloadPromise = page.waitForEvent("download");
-  await page.getByRole("button", { name: "Export week" }).click();
-  const download = await downloadPromise;
+  async function exportOption(name) {
+    const promise = page.waitForEvent("download");
+    await page.getByRole("button", { name: "Export" }).click();
+    await page.getByRole("menuitem", { name }).click();
+    return promise;
+  }
+
+  for (const [name, pattern] of [
+    ["Week plan A4 PDF to print", /^MealPlan-week-.+\.pdf$/],
+    ["Grocery list A4 PDF, sorted by aisle", /^MealPlan-groceries-.+\.pdf$/],
+  ]) {
+    const pdfDownload = await exportOption(name);
+    assert.match(pdfDownload.suggestedFilename(), pattern);
+    const pdf = fs.readFileSync(await pdfDownload.path());
+    assert.equal(pdf.subarray(0, 5).toString(), "%PDF-");
+    assert.match(pdf.subarray(-6).toString(), /%%EOF/);
+    assert.match(pdf.toString("latin1"), /\/MediaBox \[0 0 595\.28 841\.89\]/);
+  }
+
+  const download = await exportOption("Week plan image A4 PNG");
   assert.match(download.suggestedFilename(), /^MealPlan-week-.+\.png$/);
   const pngPath = await download.path();
   const png = fs.readFileSync(pngPath);
@@ -257,7 +274,7 @@ async function checkElectron() {
     assert.equal(columns, true);
     await window.getByRole("button", { name: "Copy to next week" }).waitFor();
     await window.getByRole("button", { name: "Favorites", exact: true }).waitFor();
-    await window.getByRole("button", { name: "Export week" }).waitFor();
+    await window.getByRole("button", { name: "Export" }).waitFor();
     await window.getByRole("button", { name: "Select Friday" }).click();
     await window.getByRole("button", { name: "Add Lemon Herb Salmon to Friday" }).click();
     assert.equal(

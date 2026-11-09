@@ -736,12 +736,14 @@ textarea:focus-visible {
 }
 
 .aisle.produce::before { background: #3cb371; }
-.aisle.protein::before { background: #e25b3c; }
-.aisle.dairy-eggs::before { background: #f2c14e; }
+.aisle.meat-seafood::before { background: #e25b3c; }
+.aisle.dairy-eggs-tofu::before { background: #f2c14e; }
 .aisle.bakery::before { background: #d08a4a; }
-.aisle.pantry::before { background: #c47b4a; }
+.aisle.rice-pasta-noodles::before { background: #b8964a; }
+.aisle.canned-dry-goods::before { background: #8f7a66; }
+.aisle.sauces-condiments::before { background: #d65d8c; }
+.aisle.oils-spices-baking::before { background: #9b6bd1; }
 .aisle.frozen::before { background: #3aa0c8; }
-.aisle.sauces-seasoning::before { background: #d65d8c; }
 
 .shop-list { display: flex; flex-direction: column; }
 
@@ -1098,3 +1100,36 @@ legend {
   .day.flash,
   #toast { animation: none; transition: none; }
 }
+
+/* Export menu */
+.export-menu { position: relative; }
+.export-options {
+  position: absolute;
+  top: calc(100% + 6px);
+  left: 0;
+  z-index: 40;
+  display: grid;
+  min-width: 230px;
+  padding: 6px;
+  border: 1px solid var(--line, #d7eee2);
+  border-radius: 14px;
+  background: #fff;
+  box-shadow: 0 14px 34px rgba(20, 60, 40, 0.18);
+}
+.export-options[hidden] { display: none; }
+.export-options button {
+  display: grid;
+  gap: 1px;
+  padding: 9px 12px;
+  border: 0;
+  border-radius: 10px;
+  background: transparent;
+  color: inherit;
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+.export-options button:hover,
+.export-options button:focus-visible { background: #eef8f2; outline: none; }
+.export-options strong { font-size: 14px; font-weight: 800; }
+.export-options span { font-size: 12px; font-weight: 700; color: #5d7568; }

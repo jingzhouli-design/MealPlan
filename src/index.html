@@ -44,7 +44,14 @@
           <button type="button" class="nav-arrow" id="next-week" aria-label="Next week">›</button>
         </div>
         <div class="week-actions">
-          <button type="button" id="export-png" class="text-btn solid" title="Save this week as an A4 PNG to print">Export week</button>
+          <div class="export-menu">
+            <button type="button" id="export-toggle" class="text-btn solid" aria-haspopup="menu" aria-expanded="false" aria-controls="export-options">Export <span aria-hidden="true">▾</span></button>
+            <div id="export-options" class="export-options" role="menu" hidden>
+              <button type="button" role="menuitem" data-export="week-pdf"><strong>Week plan</strong><span>A4 PDF to print</span></button>
+              <button type="button" role="menuitem" data-export="grocery-pdf"><strong>Grocery list</strong><span>A4 PDF, sorted by aisle</span></button>
+              <button type="button" role="menuitem" data-export="week-png"><strong>Week plan image</strong><span>A4 PNG</span></button>
+            </div>
+          </div>
           <button type="button" id="copy-next" class="text-btn">Copy to next week</button>
           <button type="button" id="clear-week" class="text-btn">Clear week</button>
         </div>
@@ -113,6 +120,7 @@
               </div>
               <div class="view-actions">
                 <button type="button" id="copy-list" class="text-btn" hidden>Copy list</button>
+                <button type="button" id="grocery-pdf" class="text-btn" hidden>Grocery PDF</button>
                 <button type="button" id="clear-ticks" class="text-btn" hidden>Clear ticks</button>
               </div>
             </div>
