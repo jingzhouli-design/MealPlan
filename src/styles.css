@@ -834,11 +834,76 @@ textarea:focus-visible {
   border-radius: 99px;
 }
 
-@media (min-width: 981px) {
+/*
+  Two columns (week on the left, library on the right) on desktop and on any
+  wide landscape screen, like an unfolded iPhone Duo (about 890 x 626 CSS px).
+  One stacked column only on narrow or portrait screens.
+*/
+@media (min-width: 981px), (min-width: 760px) and (orientation: landscape) {
   html, body { overflow: hidden; }
+  @supports (height: 100dvh) {
+    .app { height: 100dvh; }
+  }
 }
 
-@media (max-width: 980px) {
+/* Compact split for tablets and foldables in landscape */
+@media (max-width: 980px) and (min-width: 760px) and (orientation: landscape) {
+  .app {
+    padding: 8px max(10px, env(safe-area-inset-right)) max(8px, env(safe-area-inset-bottom)) max(10px, env(safe-area-inset-left));
+    gap: 8px;
+  }
+  .topbar {
+    grid-template-columns: auto minmax(0, 1fr) auto;
+    gap: 10px;
+  }
+  .brand p { display: none; }
+  .brand h1 { font-size: 22px; }
+  .logo svg { width: 30px; height: 30px; }
+  .week-switch { gap: 6px; }
+  .week-title h2 { font-size: 17px; }
+  .week-title p { font-size: 11px; }
+  .nav-arrow { width: 30px; height: 30px; font-size: 20px; }
+  .week-actions { gap: 6px; flex-wrap: nowrap; }
+  .week-actions .text-btn { padding: 6px 10px; font-size: 13px; }
+  .workspace {
+    grid-template-columns: minmax(260px, 0.85fr) minmax(0, 1.15fr);
+    gap: 8px;
+  }
+  .panel { border-radius: 14px; }
+  .panel-head { padding: 6px 10px; }
+  .panel-scroll { padding: 8px 10px 12px; }
+  .tab, .view-switch button { padding: 6px 11px; }
+  .adding { font-size: 12px; padding: 4px 8px; }
+  .meal-grid { grid-template-columns: repeat(auto-fill, minmax(210px, 1fr)); gap: 8px; }
+  .days {
+    padding: 4px;
+    display: flex;
+    flex-direction: column;
+    overflow-y: auto;
+  }
+  .day {
+    flex: 1 0 auto;
+    min-height: 58px;
+    grid-template-columns: 54px minmax(0, 1fr);
+    overflow: visible;
+  }
+  .day-select { padding: 2px 4px; }
+  .date-num { font-size: 18px; }
+  .day-meals { overflow: visible; gap: 3px; padding: 3px 2px; }
+  .planned { padding: 1px 2px 1px 7px; }
+  .planned-name { font-size: 12.5px; }
+  .remove { width: 26px; height: 26px; }
+}
+
+/* Very short landscape windows: trim the week rows further */
+@media (max-height: 600px) and (min-width: 760px) and (orientation: landscape) {
+  .today-pill { margin-top: 1px; padding: 0 5px; font-size: 9px; }
+  .dow { font-size: 10px; }
+  .date-num { margin-top: 1px; font-size: 16px; }
+  .day-empty { font-size: 12px; }
+}
+
+@media (max-width: 980px) and (orientation: portrait), (max-width: 759px) {
   html, body, .app { height: auto; }
   .app { min-height: 100%; }
   .topbar {

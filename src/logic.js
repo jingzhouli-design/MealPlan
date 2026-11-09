@@ -445,12 +445,18 @@ function sanitizeIngredient(raw) {
 
 export function shoppingText(groups, checked) {
   if (!groups.length) return "Shopping list\n\nNothing to buy yet.";
-  return groups
+  const sections = groups
+    .map((group) => ({
+      category: group.category,
+      items: group.items.filter((item) => !checked?.has(item.key)),
+    }))
+    .filter((group) => group.items.length);
+  if (!sections.length) return "Shopping list\n\nEverything is ticked off.";
+  return sections
     .map((group) => {
-      const lines = group.items.map((item) => {
-        const mark = checked?.has(item.key) ? "[x]" : "[ ]";
-        return `${mark} ${item.name} — ${formatQty(item.qty, item.unit)}`;
-      });
+      const lines = group.items.map(
+        (item) => `- ${item.name} — ${formatQty(item.qty, item.unit)}`
+      );
       return `${group.category}\n${lines.join("\n")}`;
     })
     .join("\n\n");

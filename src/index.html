@@ -2,7 +2,7 @@
 <html lang="en">
   <head>
     <meta charset="UTF-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
     <title>MealPlan — Weekly Meal Planner</title>
     <meta
       name="description"
@@ -44,6 +44,7 @@
           <button type="button" class="nav-arrow" id="next-week" aria-label="Next week">›</button>
         </div>
         <div class="week-actions">
+          <button type="button" id="export-png" class="text-btn solid" title="Save this week as an A4 PNG to print">Export week</button>
           <button type="button" id="copy-next" class="text-btn">Copy to next week</button>
           <button type="button" id="clear-week" class="text-btn">Clear week</button>
         </div>
@@ -111,7 +112,6 @@
                 <button type="button" data-view="day" aria-pressed="false">By day</button>
               </div>
               <div class="view-actions">
-                <button type="button" id="export-png" class="text-btn solid">Export PNG</button>
                 <button type="button" id="copy-list" class="text-btn" hidden>Copy list</button>
                 <button type="button" id="clear-ticks" class="text-btn" hidden>Clear ticks</button>
               </div>

@@ -29,6 +29,23 @@ try {
   );
   await mobile.close();
 
+  // Unfolded iPhone Duo held sideways: week and library side by side.
+  const duo = await openPage(890, 560);
+  await resetStorage(duo);
+  const split = await duo.evaluate(() => {
+    const week = document.querySelector(".week-panel").getBoundingClientRect();
+    const library = document.querySelector('[aria-label="Meal library"]').getBoundingClientRect();
+    return {
+      sideBySide: week.right <= library.left + 1 && Math.abs(week.top - library.top) < 2,
+      overflowX: document.documentElement.scrollWidth - document.documentElement.clientWidth,
+      overflowY: document.documentElement.scrollHeight - window.innerHeight,
+    };
+  });
+  assert.ok(split.sideBySide, "iPhone Duo landscape should be split");
+  assert.ok(split.overflowX <= 1, `duo overflow ${split.overflowX}`);
+  assert.ok(split.overflowY <= 4, `duo should fit height ${split.overflowY}`);
+  await duo.close();
+
   await checkElectron();
   console.log("UI check passed");
 } finally {
@@ -160,21 +177,19 @@ async function checkPage(page, label) {
   assert.match(await page.locator("#week-relation").innerText(), /This week/);
   assert.equal(await page.locator('[data-day="thu"] .planned-name').innerText(), "Greek Salad");
 
-  await page.getByRole("tab", { name: "Ingredients" }).click();
   const downloadPromise = page.waitForEvent("download");
-  await page.getByRole("button", { name: "Export PNG" }).click();
+  await page.getByRole("button", { name: "Export week" }).click();
   const download = await downloadPromise;
-  assert.match(download.suggestedFilename(), /^MealPlan-.+\.png$/);
+  assert.match(download.suggestedFilename(), /^MealPlan-week-.+\.png$/);
   const pngPath = await download.path();
   const png = fs.readFileSync(pngPath);
   assert.equal(png[0], 0x89);
   assert.equal(png[1], 0x50);
   assert.equal(png[2], 0x4e);
   assert.equal(png[3], 0x47);
-  assert.equal(png.readUInt32BE(16), 1240);
-  assert.equal(png.readUInt32BE(20), 1754);
+  assert.equal(png.readUInt32BE(16), 2480);
+  assert.equal(png.readUInt32BE(20), 3508);
 
-  await page.getByRole("tab", { name: "Meals" }).click();
   await page.getByRole("button", { name: "Save Tomato and Egg Stir-fry to favorites" }).click();
   await page.getByRole("button", { name: "Favorites", exact: true }).click();
   await page.getByRole("button", { name: "Chinese", exact: true }).click();
@@ -242,9 +257,7 @@ async function checkElectron() {
     assert.equal(columns, true);
     await window.getByRole("button", { name: "Copy to next week" }).waitFor();
     await window.getByRole("button", { name: "Favorites", exact: true }).waitFor();
-    await window.getByRole("tab", { name: "Ingredients" }).click();
-    await window.getByRole("button", { name: "Export PNG" }).waitFor();
-    await window.getByRole("tab", { name: "Meals" }).click();
+    await window.getByRole("button", { name: "Export week" }).waitFor();
     await window.getByRole("button", { name: "Select Friday" }).click();
     await window.getByRole("button", { name: "Add Lemon Herb Salmon to Friday" }).click();
     assert.equal(

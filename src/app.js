@@ -1,5 +1,5 @@
 import { MEALS } from "./meals.js";
-import { downloadIngredientPng, exportSections } from "./export-png.js";
+import { downloadWeekPng, weekSections } from "./export-png.js";
 import {
   DAYS,
   CATEGORIES,
@@ -714,7 +714,7 @@ function renderShoppingView(byId) {
     0
   );
   els.viewBlurb.textContent = total
-    ? `Combined by aisle. ${ticked} of ${total} ticked off.`
+    ? `Combined by aisle. ${ticked} of ${total} ticked off. Copy list skips ticked items.`
     : "Combined and sorted by aisle.";
 
   if (!total) {
@@ -953,16 +953,13 @@ function emptyIngredients(title, copy) {
 
 async function exportPng() {
   try {
-    const byId = mealsById();
-    await downloadIngredientPng({
+    await downloadWeekPng({
       weekKey: state.weekKey,
       weekLabel: formatWeekRange(state.weekKey),
       relation: weekRelation(state.weekKey),
-      view: state.ingredientView,
-      showChecks: state.ingredientView === "shopping",
-      sections: exportSections(state.ingredientView, state.plan, byId, state.checked),
+      days: weekSections(state.weekKey, state.plan, mealsById()),
     });
-    showToast("Ingredient list exported");
+    showToast("Week plan exported");
   } catch {
     showToast("Could not export the PNG");
   }
@@ -971,9 +968,19 @@ async function exportPng() {
 async function copyShoppingList() {
   const groups = shoppingList(state.plan, mealsById());
   const text = shoppingText(groups, state.checked);
+  const left = groups.reduce(
+    (sum, group) => sum + group.items.filter((item) => !state.checked.has(item.key)).length,
+    0
+  );
   try {
     await copyText(text);
-    showToast("Shopping list copied");
+    showToast(
+      left === 0
+        ? "Everything is ticked off"
+        : left === 1
+          ? "Copied 1 item to buy"
+          : `Copied ${left} items to buy`
+    );
   } catch {
     showToast("Could not copy. Try again after clicking the page.");
   }

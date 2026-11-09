@@ -26,6 +26,7 @@ import {
   clonePlan,
   sanitizeMeal,
   realignMondayWeeks,
+  shoppingText,
 } from "../src/logic.js";
 
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
@@ -287,4 +288,19 @@ test("custom meals need a name, a meal time, and a real ingredient", () => {
   assert.equal(clean.ingredients[0].name, "Noodles");
   assert.equal(clean.ingredients[0].qty, 200);
   assert.equal(clean.ingredients[0].category, "Pantry");
+});
+
+test("copied shopping text leaves out ticked items", () => {
+  let plan = emptyPlan();
+  plan = addMeal(plan, "wed", "tomato-egg", "a");
+  const groups = shoppingList(plan, MEALS_BY_ID);
+  const keys = groups.flatMap((group) => group.items.map((item) => item.key));
+  assert.ok(keys.length > 1);
+  const first = groups[0].items[0];
+  const text = shoppingText(groups, new Set([first.key]));
+  assert.equal(text.includes(`${first.name} —`), false);
+  assert.equal(text.includes("[x]"), false);
+  const others = keys.length - 1;
+  assert.equal((text.match(/^- /gm) || []).length, others);
+  assert.match(shoppingText(groups, new Set(keys)), /Everything is ticked off/);
 });

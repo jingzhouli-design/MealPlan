@@ -1,293 +1,329 @@
-import {
-  ingredientsByDay,
-  ingredientsByDish,
-  shoppingList,
-  formatQty,
-  dayById,
-} from "./logic.js";
+import { DAYS, parseISODate, formatQty } from "./logic.js";
 
-const PAGE_W = 1240;
-const PAGE_H = 1754;
-const MARGIN = 68;
+// A4 portrait at 300 dpi. Layout is drawn on a 1240 x 1754 grid (150 dpi)
+// and scaled 2x so the printed page stays sharp.
+const SCALE = 2;
+const W = 1240;
+const H = 1754;
+const MARGIN = 64;
 
-const VIEW_TITLES = {
-  dish: "By dish",
-  shopping: "Shopping list",
-  day: "By day",
-};
+const SANS = 'Nunito, "Segoe UI", "PingFang SC", "Microsoft YaHei", sans-serif';
+const SERIF = 'Fraunces, Georgia, "Times New Roman", serif';
 
-export function exportSections(view, plan, mealsById, checked) {
-  if (view === "shopping") {
-    return shoppingList(plan, mealsById).map((group) => ({
-      title: group.category,
-      subtitle: "",
-      lines: group.items.map((item) => ({
-        name: item.name,
-        qty: formatQty(item.qty, item.unit),
-        note: item.dishes.join(", "),
-        checked: checked.has(item.key),
-      })),
-    }));
-  }
+const INK = "#1c3328";
+const MUTED = "#5d7568";
+const GREEN = "#147a49";
+const GREEN_SOFT = "#1f9d62";
+const LINE = "#d7eee2";
+const TINT = "#f3fbf6";
 
-  if (view === "day") {
-    return ingredientsByDay(plan, mealsById).map((group) => {
-      const names = [];
-      for (const { meal } of group.meals) {
-        const found = names.find((item) => item.name === meal.name);
-        if (found) found.count += 1;
-        else names.push({ name: meal.name, count: 1 });
-      }
-      const subtitle = names.length
-        ? names.map((item) => (item.count > 1 ? `${item.name} x${item.count}` : item.name)).join(", ")
-        : "Nothing planned";
-      return {
-        title: group.day.label,
-        subtitle,
-        lines: group.ingredients.map((item) => ({
-          name: item.name,
-          qty: formatQty(item.qty, item.unit),
-          note: "",
-          checked: false,
-        })),
-      };
-    });
-  }
+export const PAGE_SIZE = { width: W * SCALE, height: H * SCALE };
 
-  return ingredientsByDish(plan, mealsById).map((group) => ({
-    title: group.meal.name,
-    subtitle:
-      group.count === 1
-        ? `Planned once · ${group.days.map((id) => dayById(id).label).join(", ")}`
-        : `Planned ${group.count} times · ${group.days.map((id) => dayById(id).label).join(", ")}`,
-    lines: group.ingredients.map((item) => ({
-      name: item.name,
-      qty: formatQty(item.qty, item.unit),
-      note: "",
-      checked: false,
-    })),
-  }));
+/**
+ * Turns the plan into one entry per day, in the app's day order.
+ * mealsById maps meal ids to meal objects (with name, emoji, minutes, ingredients).
+ */
+export function weekSections(weekKey, plan, mealsById) {
+  const start = parseISODate(weekKey);
+  return DAYS.map((day, index) => {
+    const date = new Date(start);
+    date.setDate(start.getDate() + index);
+    const meals = (plan[day.id] ?? [])
+      .map((entry) => mealsById[entry.mealId])
+      .filter(Boolean)
+      .map((meal) => ({
+        name: meal.name,
+        emoji: meal.emoji || "",
+        minutes: meal.minutes,
+        ingredients: meal.ingredients
+          .map((item) => `${item.name} ${formatQty(item.qty, item.unit)}`)
+          .join(" · "),
+      }));
+    return {
+      id: day.id,
+      label: day.label,
+      short: day.short.toUpperCase(),
+      dateNum: String(date.getDate()),
+      month: new Intl.DateTimeFormat("en-US", { month: "short" }).format(date),
+      meals,
+    };
+  });
 }
 
-export function renderIngredientCanvas(model) {
+export function renderWeekCanvas(model) {
   const canvas = document.createElement("canvas");
-  canvas.width = PAGE_W;
-  canvas.height = PAGE_H;
+  canvas.width = W * SCALE;
+  canvas.height = H * SCALE;
   const ctx = canvas.getContext("2d");
+  ctx.scale(SCALE, SCALE);
+
+  // Pick the roomiest type size that still fits all seven days on one page.
   const options = [
-    { font: 22, columns: 1 },
-    { font: 20, columns: 1 },
-    { font: 18, columns: 1 },
-    { font: 18, columns: 2 },
-    { font: 16, columns: 2 },
-    { font: 15, columns: 2 },
-    { font: 14, columns: 2 },
+    { font: 24, details: true },
+    { font: 22, details: true },
+    { font: 20, details: true },
+    { font: 18, details: true },
+    { font: 22, details: false },
+    { font: 19, details: false },
+    { font: 17, details: false },
+    { font: 15, details: false },
   ];
   let chosen = options[options.length - 1];
   for (const option of options) {
-    if (flow(ctx, model, option.font, option.columns, false).ok) {
+    if (layout(ctx, model, option).fits) {
       chosen = option;
       break;
     }
   }
-  flow(ctx, model, chosen.font, chosen.columns, true);
+  draw(ctx, model, layout(ctx, model, chosen), chosen);
   return canvas;
 }
 
-export async function downloadIngredientPng(model) {
-  const canvas = renderIngredientCanvas(model);
+export async function downloadWeekPng(model) {
+  if (document.fonts?.ready) {
+    try {
+      await document.fonts.ready;
+    } catch {
+      // Fall back to system fonts.
+    }
+  }
+  const canvas = renderWeekCanvas(model);
   const blob = await new Promise((resolve) => canvas.toBlob(resolve, "image/png"));
+  if (!blob) throw new Error("export failed");
   const url = URL.createObjectURL(blob);
   const link = document.createElement("a");
   link.href = url;
-  link.download = `MealPlan-${model.weekKey}.png`;
+  link.download = `MealPlan-week-${model.weekKey}.png`;
   document.body.appendChild(link);
   link.click();
   link.remove();
-  URL.revokeObjectURL(url);
+  window.setTimeout(() => URL.revokeObjectURL(url), 4000);
 }
 
-function flow(ctx, model, fontSize, columns, commit) {
-  if (commit) {
-    ctx.fillStyle = "#f3fbf6";
-    ctx.fillRect(0, 0, PAGE_W, PAGE_H);
-    ctx.fillStyle = "#ffffff";
-    roundRect(ctx, 36, 36, PAGE_W - 72, PAGE_H - 72, 28);
-    ctx.fill();
-  }
+const HEADER_BOTTOM = 236;
+const FOOTER_TOP = H - MARGIN - 20;
+const DATE_COL = 132;
+const ROW_GAP = 12;
+const ROW_PAD = 18;
 
-  const headerBottom = drawHeader(ctx, model, commit);
-  const innerLeft = MARGIN;
-  const innerWidth = PAGE_W - MARGIN * 2;
-  const gap = 32;
-  const columnWidth = columns === 1 ? innerWidth : (innerWidth - gap) / 2;
-  const limit = PAGE_H - MARGIN - 8;
-  const sections = model.sections.length
-    ? model.sections
-    : [{ title: "Nothing planned this week", subtitle: "Add meals and export again.", lines: [] }];
-
-  const heights = sections.map((section) => sectionHeight(ctx, section, fontSize, columnWidth));
-  const columnsOf = splitColumns(heights, columns, limit - headerBottom);
-  if (!columnsOf) return { ok: false };
-
-  if (commit) {
-    columnsOf.forEach((indexes, columnIndex) => {
-      let y = headerBottom;
-      const x = innerLeft + columnIndex * (columnWidth + gap);
-      for (const index of indexes) {
-        y = drawSection(ctx, sections[index], x, y, fontSize, columnWidth, model.showChecks);
-      }
-    });
-    ctx.fillStyle = "#5d7568";
-    ctx.font = "700 16px Segoe UI, sans-serif";
-    ctx.fillText("Each recipe serves 2.", MARGIN, PAGE_H - 48);
-  }
-  return { ok: true };
+function layout(ctx, model, option) {
+  const textX = MARGIN + DATE_COL + 20;
+  const textW = W - MARGIN - ROW_PAD - textX;
+  const minRow = Math.max(96, option.font * 4.2);
+  const rows = model.days.map((day) => {
+    const blocks = day.meals.map((meal) => mealBlock(ctx, meal, option, textW));
+    const content = day.meals.length
+      ? blocks.reduce((sum, block) => sum + block.height, 0) + (blocks.length - 1) * 10
+      : option.font + 8;
+    return { day, blocks, height: Math.max(minRow, content + ROW_PAD * 2) };
+  });
+  const available = FOOTER_TOP - 18 - HEADER_BOTTOM - ROW_GAP * (rows.length - 1);
+  const used = rows.reduce((sum, row) => sum + row.height, 0);
+  if (used > available) return { fits: false, rows, textX, textW };
+  // Hand out leftover space evenly so the page is filled and there is room to scribble.
+  const extra = (available - used) / rows.length;
+  for (const row of rows) row.height += extra;
+  return { fits: true, rows, textX, textW };
 }
 
-function splitColumns(heights, columns, available) {
-  if (columns === 1) {
-    const total = heights.reduce((sum, height) => sum + height, 0);
-    return total <= available ? [heights.map((_, index) => index)] : null;
-  }
-  const left = [];
-  const right = [];
-  let leftHeight = 0;
-  let rightHeight = 0;
-  let fillingLeft = true;
-  for (let index = 0; index < heights.length; index += 1) {
-    const height = heights[index];
-    if (height > available) return null;
-    if (fillingLeft && leftHeight + height <= available) {
-      left.push(index);
-      leftHeight += height;
-    } else {
-      fillingLeft = false;
-      if (rightHeight + height > available) return null;
-      right.push(index);
-      rightHeight += height;
-    }
-  }
-  return [left, right];
-}
-
-function drawHeader(ctx, model, commit) {
-  let y = 78;
-  if (commit) {
-    ctx.fillStyle = "#147a49";
-    ctx.font = "700 42px Georgia, serif";
-    ctx.fillText("MealPlan", MARGIN, y);
-  }
-  y += 36;
-  if (commit) {
-    ctx.fillStyle = "#1c3328";
-    ctx.font = "700 28px Segoe UI, sans-serif";
-    ctx.fillText(VIEW_TITLES[model.view] || "Ingredients", MARGIN, y);
-  }
-  y += 32;
-  if (commit) {
-    ctx.fillStyle = "#5d7568";
-    ctx.font = "700 22px Segoe UI, sans-serif";
-    ctx.fillText(`${model.weekLabel}  ·  ${model.relation}`, MARGIN, y);
-  }
-  y += 28;
-  if (commit) {
-    ctx.strokeStyle = "#d7eee2";
-    ctx.lineWidth = 2;
-    ctx.beginPath();
-    ctx.moveTo(MARGIN, y);
-    ctx.lineTo(PAGE_W - MARGIN, y);
-    ctx.stroke();
-  }
-  return y + 28;
-}
-
-function sectionHeight(ctx, section, fontSize, width) {
-  const titleLines = wrap(ctx, section.title, width, `700 ${fontSize + 4}px Segoe UI, sans-serif`);
-  const subtitleLines = section.subtitle
-    ? wrap(ctx, section.subtitle, width, `700 ${Math.max(13, fontSize - 2)}px Segoe UI, sans-serif`)
-    : [];
-  let height = 8 + titleLines.length * (fontSize + 10) + subtitleLines.length * (fontSize + 4) + 8;
-  for (const line of section.lines) {
-    const nameLines = wrap(ctx, line.name, width * 0.62, `700 ${fontSize}px Segoe UI, sans-serif`);
-    const noteLines = line.note
-      ? wrap(ctx, line.note, width * 0.7, `600 ${Math.max(12, fontSize - 3)}px Segoe UI, sans-serif`)
+function mealBlock(ctx, meal, option, width) {
+  const nameFont = `800 ${option.font}px ${SANS}`;
+  const detailFont = `700 ${Math.round(option.font * 0.68)}px ${SANS}`;
+  const emojiW = meal.emoji ? option.font * 1.5 : 0;
+  const minutes = meal.minutes ? `${meal.minutes} min` : "";
+  ctx.font = `800 ${Math.round(option.font * 0.72)}px ${SANS}`;
+  const minutesW = minutes ? ctx.measureText(minutes).width + 16 : 0;
+  const nameLines = wrap(ctx, meal.name, width - emojiW - minutesW, nameFont);
+  const detailLines =
+    option.details && meal.ingredients
+      ? wrap(ctx, meal.ingredients, width - emojiW, detailFont).slice(0, 2)
       : [];
-    height += Math.max(1, nameLines.length) * (fontSize + 8) + noteLines.length * (fontSize + 2) + 8;
-  }
-  return height + 16;
+  const nameLH = option.font * 1.25;
+  const detailLH = option.font * 0.68 * 1.35;
+  return {
+    meal,
+    nameLines,
+    detailLines,
+    nameFont,
+    detailFont,
+    emojiW,
+    minutes,
+    nameLH,
+    detailLH,
+    height: nameLines.length * nameLH + (detailLines.length ? 4 + detailLines.length * detailLH : 0),
+  };
 }
 
-function drawSection(ctx, section, x, y, fontSize, width, showChecks) {
-  y += 8;
-  ctx.fillStyle = "#147a49";
-  ctx.font = `700 ${fontSize + 4}px Segoe UI, sans-serif`;
-  for (const line of wrap(ctx, section.title, width, ctx.font)) {
-    ctx.fillText(line, x, y);
-    y += fontSize + 10;
+function draw(ctx, model, plan, option) {
+  ctx.fillStyle = "#ffffff";
+  ctx.fillRect(0, 0, W, H);
+  ctx.textBaseline = "alphabetic";
+
+  // Header
+  ctx.fillStyle = GREEN;
+  ctx.font = `680 24px ${SERIF}`;
+  ctx.fillText("MealPlan", MARGIN, MARGIN + 22);
+  ctx.fillStyle = MUTED;
+  ctx.font = `800 18px ${SANS}`;
+  const relation = model.relation.toUpperCase();
+  ctx.fillText(relation, W - MARGIN - ctx.measureText(relation).width, MARGIN + 20);
+
+  ctx.fillStyle = INK;
+  ctx.font = `680 52px ${SERIF}`;
+  ctx.fillText(model.weekLabel, MARGIN, MARGIN + 92);
+  ctx.fillStyle = MUTED;
+  ctx.font = `700 20px ${SANS}`;
+  const total = model.days.reduce((sum, day) => sum + day.meals.length, 0);
+  ctx.fillText(
+    total === 1 ? "1 meal planned · each recipe serves 2" : `${total} meals planned · each recipe serves 2`,
+    MARGIN,
+    MARGIN + 128
+  );
+  ctx.strokeStyle = LINE;
+  ctx.lineWidth = 2;
+  ctx.beginPath();
+  ctx.moveTo(MARGIN, HEADER_BOTTOM - 22);
+  ctx.lineTo(W - MARGIN, HEADER_BOTTOM - 22);
+  ctx.stroke();
+
+  // Days
+  let y = HEADER_BOTTOM;
+  for (const row of plan.rows) {
+    drawRow(ctx, row, y, plan, option);
+    y += row.height + ROW_GAP;
   }
-  if (section.subtitle) {
-    ctx.fillStyle = "#5d7568";
-    ctx.font = `700 ${Math.max(13, fontSize - 2)}px Segoe UI, sans-serif`;
-    for (const line of wrap(ctx, section.subtitle, width, ctx.font)) {
-      ctx.fillText(line, x, y);
-      y += fontSize + 4;
-    }
-  }
-  y += 6;
-  for (const line of section.lines) {
-    const box = fontSize;
-    const textX = showChecks ? x + box + 8 : x;
-    if (showChecks) {
-      if (line.checked) {
-        ctx.fillStyle = "#1f9d62";
-        roundRect(ctx, x, y - box + 4, box - 4, box - 4, 3);
-        ctx.fill();
-      } else {
-        ctx.strokeStyle = "#9dccb4";
-        ctx.lineWidth = 2;
-        roundRect(ctx, x, y - box + 4, box - 4, box - 4, 3);
-        ctx.stroke();
-      }
-    }
-    ctx.fillStyle = "#1c3328";
-    ctx.font = `700 ${fontSize}px Segoe UI, sans-serif`;
-    const nameLines = wrap(ctx, line.name, showChecks ? width * 0.62 : width * 0.68, ctx.font);
-    nameLines.forEach((nameLine, index) => {
-      ctx.fillText(nameLine, textX, y + index * (fontSize + 8));
-    });
-    ctx.fillStyle = "#147a49";
-    ctx.font = `700 ${fontSize}px Segoe UI, sans-serif`;
-    const qtyWidth = ctx.measureText(line.qty).width;
-    ctx.fillText(line.qty, x + width - qtyWidth, y);
-    y += Math.max(1, nameLines.length) * (fontSize + 8);
-    if (line.note) {
-      ctx.fillStyle = "#5d7568";
-      ctx.font = `600 ${Math.max(12, fontSize - 3)}px Segoe UI, sans-serif`;
-      for (const noteLine of wrap(ctx, line.note, width * 0.7, ctx.font)) {
-        ctx.fillText(noteLine, textX, y);
-        y += fontSize + 2;
-      }
-    }
-    y += 8;
-  }
-  return y + 10;
+
+  // Footer
+  ctx.fillStyle = "#8aa898";
+  ctx.font = `700 15px ${SANS}`;
+  ctx.fillText(`Printed from MealPlan · week of ${model.weekKey}`, MARGIN, H - MARGIN + 8);
 }
 
+function drawRow(ctx, row, top, plan, option) {
+  const { day, blocks, height } = row;
+  const x = MARGIN;
+  const width = W - MARGIN * 2;
+  const empty = !day.meals.length;
+
+  ctx.fillStyle = empty ? "#fbfdfc" : "#ffffff";
+  roundRect(ctx, x, top, width, height, 18);
+  ctx.fill();
+  ctx.strokeStyle = LINE;
+  ctx.lineWidth = 2;
+  ctx.stroke();
+
+  // Date column
+  ctx.save();
+  roundRect(ctx, x, top, width, height, 18);
+  ctx.clip();
+  ctx.fillStyle = TINT;
+  ctx.fillRect(x, top, DATE_COL, height);
+  ctx.restore();
+  ctx.strokeStyle = LINE;
+  ctx.beginPath();
+  ctx.moveTo(x + DATE_COL, top);
+  ctx.lineTo(x + DATE_COL, top + height);
+  ctx.stroke();
+
+  const mid = top + height / 2;
+  const cx = x + DATE_COL / 2;
+  ctx.textAlign = "center";
+  ctx.fillStyle = GREEN;
+  ctx.font = `800 17px ${SANS}`;
+  ctx.fillText(day.short, cx, mid - 22);
+  ctx.fillStyle = INK;
+  ctx.font = `680 42px ${SERIF}`;
+  ctx.fillText(day.dateNum, cx, mid + 18);
+  ctx.fillStyle = MUTED;
+  ctx.font = `700 15px ${SANS}`;
+  ctx.fillText(day.month, cx, mid + 40);
+  ctx.textAlign = "left";
+
+  if (empty) {
+    ctx.fillStyle = "#a7bdb1";
+    ctx.font = `700 ${Math.round(option.font * 0.8)}px ${SANS}`;
+    ctx.fillText("Nothing planned", plan.textX, mid + option.font * 0.28);
+    return;
+  }
+
+  const contentH =
+    blocks.reduce((sum, block) => sum + block.height, 0) + (blocks.length - 1) * 10;
+  let y = top + Math.max(ROW_PAD, (height - contentH) / 2);
+  blocks.forEach((block, index) => {
+    if (index > 0) {
+      ctx.strokeStyle = "#eef6f1";
+      ctx.lineWidth = 1.5;
+      ctx.beginPath();
+      ctx.moveTo(plan.textX, y - 5);
+      ctx.lineTo(plan.textX + plan.textW, y - 5);
+      ctx.stroke();
+    }
+    drawMeal(ctx, block, plan.textX, y, plan.textW, option);
+    y += block.height + 10;
+  });
+}
+
+function drawMeal(ctx, block, x, top, width, option) {
+  const base = top + block.nameLH * 0.8;
+  if (block.meal.emoji) {
+    ctx.font = `${option.font}px "Segoe UI Emoji", "Apple Color Emoji", "Noto Color Emoji", sans-serif`;
+    ctx.fillStyle = INK;
+    ctx.fillText(block.meal.emoji, x, base);
+  }
+  const textX = x + block.emojiW;
+  ctx.fillStyle = INK;
+  ctx.font = block.nameFont;
+  block.nameLines.forEach((line, index) => {
+    ctx.fillText(line, textX, base + index * block.nameLH);
+  });
+  if (block.minutes) {
+    ctx.fillStyle = GREEN_SOFT;
+    ctx.font = `800 ${Math.round(option.font * 0.72)}px ${SANS}`;
+    const w = ctx.measureText(block.minutes).width;
+    ctx.fillText(block.minutes, x + width - w, base);
+  }
+  if (block.detailLines.length) {
+    ctx.fillStyle = MUTED;
+    ctx.font = block.detailFont;
+    let y = top + block.nameLines.length * block.nameLH + 4 + block.detailLH * 0.78;
+    for (const line of block.detailLines) {
+      ctx.fillText(line, textX, y);
+      y += block.detailLH;
+    }
+  }
+}
+
+// Wraps on spaces, and breaks long words or CJK text by character.
 function wrap(ctx, text, maxWidth, font) {
   ctx.font = font;
   const words = String(text || "").split(/\s+/).filter(Boolean);
   if (!words.length) return [""];
   const lines = [];
   let current = "";
-  for (const word of words) {
+  const push = (word) => {
     const trial = current ? `${current} ${word}` : word;
-    if (ctx.measureText(trial).width <= maxWidth) current = trial;
-    else {
-      if (current) lines.push(current);
-      current = word;
+    if (ctx.measureText(trial).width <= maxWidth) {
+      current = trial;
+      return;
     }
-  }
+    if (current) lines.push(current);
+    current = "";
+    if (ctx.measureText(word).width <= maxWidth) {
+      current = word;
+      return;
+    }
+    let chunk = "";
+    for (const char of word) {
+      if (ctx.measureText(chunk + char).width > maxWidth && chunk) {
+        lines.push(chunk);
+        chunk = char;
+      } else {
+        chunk += char;
+      }
+    }
+    current = chunk;
+  };
+  words.forEach(push);
   if (current) lines.push(current);
   return lines;
 }
