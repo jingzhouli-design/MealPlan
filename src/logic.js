@@ -1,11 +1,11 @@
 export const DAYS = [
+  { id: "sat", short: "Sat", label: "Saturday" },
+  { id: "sun", short: "Sun", label: "Sunday" },
   { id: "mon", short: "Mon", label: "Monday" },
   { id: "tue", short: "Tue", label: "Tuesday" },
   { id: "wed", short: "Wed", label: "Wednesday" },
   { id: "thu", short: "Thu", label: "Thursday" },
   { id: "fri", short: "Fri", label: "Friday" },
-  { id: "sat", short: "Sat", label: "Saturday" },
-  { id: "sun", short: "Sun", label: "Sunday" },
 ];
 
 export const CATEGORIES = [
@@ -272,10 +272,51 @@ export function parseISODate(value) {
 
 export function startOfWeek(date = new Date()) {
   const copy = new Date(date.getFullYear(), date.getMonth(), date.getDate());
-  const weekday = copy.getDay();
-  const offset = weekday === 0 ? -6 : 1 - weekday;
-  copy.setDate(copy.getDate() + offset);
+  const daysSinceSaturday = (copy.getDay() + 1) % 7;
+  copy.setDate(copy.getDate() - daysSinceSaturday);
   return copy;
+}
+
+function addDays(key, days) {
+  const date = parseISODate(key);
+  date.setDate(date.getDate() + days);
+  return formatISODate(date);
+}
+
+function mergeWeekDays(target, source, dayIds) {
+  const next = target ?? emptyPlan();
+  for (const id of dayIds) {
+    next[id] = [...(next[id] ?? []), ...(source[id] ?? [])];
+  }
+  return next;
+}
+
+export function realignMondayWeeks(plans, checks = {}) {
+  const nextPlans = {};
+  const nextChecks = {};
+  const dayIds = DAYS.map((day) => day.id);
+  for (const [key, list] of Object.entries(checks ?? {})) {
+    if (!/^\d{4}-\d{2}-\d{2}$/.test(key) || !Array.isArray(list)) continue;
+    if (parseISODate(key).getDay() !== 1) nextChecks[key] = list;
+  }
+  for (const [key, plan] of Object.entries(plans ?? {})) {
+    if (!/^\d{4}-\d{2}-\d{2}$/.test(key)) continue;
+    if (parseISODate(key).getDay() !== 1) {
+      nextPlans[key] = mergeWeekDays(nextPlans[key], plan, dayIds);
+      continue;
+    }
+    const early = addDays(key, -2);
+    const late = addDays(key, 5);
+    nextPlans[early] = mergeWeekDays(nextPlans[early], plan, ["mon", "tue", "wed", "thu", "fri"]);
+    nextPlans[late] = mergeWeekDays(nextPlans[late], plan, ["sat", "sun"]);
+    const ticks = checks?.[key];
+    if (Array.isArray(ticks) && ticks.length) {
+      const earlyHas = ["mon", "tue", "wed", "thu", "fri"].some((id) => plan[id]?.length);
+      const dest = earlyHas ? early : late;
+      nextChecks[dest] = [...(nextChecks[dest] ?? []), ...ticks];
+    }
+  }
+  return { plans: nextPlans, checks: nextChecks };
 }
 
 export function weekKeyFromDate(date = new Date()) {

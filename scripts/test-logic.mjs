@@ -25,6 +25,7 @@ import {
   weekRelation,
   clonePlan,
   sanitizeMeal,
+  realignMondayWeeks,
 } from "../src/logic.js";
 
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
@@ -205,18 +206,37 @@ test("quantities format and merge across dishes, days, and repeats", () => {
   assert.equal(plan.mon.length, 2);
 });
 
-test("weeks start on Monday and copied plans get new ids", () => {
+test("weeks start on Saturday and copied plans get new ids", () => {
   const sunday = new Date(2026, 10, 8);
+  const friday = new Date(2026, 10, 6);
   assert.equal(sunday.getDay(), 0);
-  assert.equal(weekKeyFromDate(sunday), "2026-11-02");
-  assert.equal(shiftWeekKey("2026-11-02", 1), "2026-11-09");
-  assert.equal(shiftWeekKey("2026-11-02", -1), "2026-10-26");
-  assert.equal(formatWeekRange("2026-11-02"), "Nov 2 – Nov 8, 2026");
-  assert.equal(weekRelation("2026-11-02", sunday), "This week");
-  assert.equal(weekRelation("2026-10-26", sunday), "Last week");
-  assert.equal(weekRelation("2026-11-09", sunday), "Next week");
-  assert.equal(weekRelation("2026-10-19", sunday), "2 weeks ago");
-  assert.equal(weekRelation("2026-11-16", sunday), "In 2 weeks");
+  assert.equal(friday.getDay(), 5);
+  assert.equal(weekKeyFromDate(sunday), "2026-11-07");
+  assert.equal(weekKeyFromDate(friday), "2026-10-31");
+  assert.equal(shiftWeekKey("2026-11-07", 1), "2026-11-14");
+  assert.equal(shiftWeekKey("2026-11-07", -1), "2026-10-31");
+  assert.equal(formatWeekRange("2026-11-07"), "Nov 7 – Nov 13, 2026");
+  assert.equal(weekRelation("2026-11-07", sunday), "This week");
+  assert.equal(weekRelation("2026-10-31", sunday), "Last week");
+  assert.equal(weekRelation("2026-11-14", sunday), "Next week");
+  assert.equal(weekRelation("2026-10-24", sunday), "2 weeks ago");
+  assert.equal(weekRelation("2026-11-21", sunday), "In 2 weeks");
+
+  const oldPlans = {
+    "2026-11-02": {
+      mon: [{ id: "a", mealId: "greek" }],
+      tue: [],
+      wed: [],
+      thu: [],
+      fri: [],
+      sat: [{ id: "b", mealId: "salmon" }],
+      sun: [],
+    },
+  };
+  const aligned = realignMondayWeeks(oldPlans, { "2026-11-02": ["Produce||Egg||pcs"] });
+  assert.equal(aligned.plans["2026-10-31"].mon[0].mealId, "greek");
+  assert.equal(aligned.plans["2026-11-07"].sat[0].mealId, "salmon");
+  assert.deepEqual(aligned.checks["2026-10-31"], ["Produce||Egg||pcs"]);
 
   const plan = addMeal(emptyPlan(), "thu", "greek", "keep");
   const copy = clonePlan(plan, () => "fresh");

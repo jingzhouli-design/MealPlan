@@ -25,6 +25,7 @@ import {
   shiftWeekKey,
   formatWeekRange,
   weekRelation,
+  realignMondayWeeks,
   clonePlan,
   normalizePlan,
   blankMeal,
@@ -126,19 +127,19 @@ function loadState() {
     const legacy = localStorage.getItem(OLD_STORAGE_KEY);
     const data = saved ? JSON.parse(saved) : legacy ? migrateV1(JSON.parse(legacy), weekKey) : null;
     if (!data) return fallback;
-    const plans = {};
+    const storedPlans = {};
     if (data.plans && typeof data.plans === "object") {
       for (const [key, plan] of Object.entries(data.plans)) {
-        if (/^\d{4}-\d{2}-\d{2}$/.test(key)) plans[key] = normalizePlan(plan);
+        if (/^\d{4}-\d{2}-\d{2}$/.test(key)) storedPlans[key] = normalizePlan(plan);
       }
     }
+    const aligned = realignMondayWeeks(storedPlans, data.checks);
+    const plans = aligned.plans;
     const selectedWeek = plans[data.weekKey] ? data.weekKey : weekKey;
     if (!plans[selectedWeek]) plans[selectedWeek] = emptyPlan();
     const checks = {};
-    if (data.checks && typeof data.checks === "object") {
-      for (const [key, list] of Object.entries(data.checks)) {
-        if (Array.isArray(list)) checks[key] = list.filter((item) => typeof item === "string");
-      }
+    for (const [key, list] of Object.entries(aligned.checks)) {
+      if (Array.isArray(list)) checks[key] = list.filter((item) => typeof item === "string");
     }
     return {
       weekKey: selectedWeek,

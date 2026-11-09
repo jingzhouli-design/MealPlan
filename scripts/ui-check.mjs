@@ -5,6 +5,7 @@ import { fileURLToPath, pathToFileURL } from "node:url";
 import { createRequire } from "node:module";
 import { chromium, _electron as electron } from "playwright";
 import { startServer } from "./serve.mjs";
+import { formatWeekRange, weekKeyFromDate } from "../src/logic.js";
 
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
 const require = createRequire(pathToFileURL(path.join(root, "package.json")));
@@ -52,6 +53,8 @@ async function checkPage(page, label) {
   const text = await page.locator("body").innerText();
   assert.equal(/[\u4e00-\u9fff]/.test(text), false, `${label} has non-English text`);
   assert.equal(await page.locator("[data-day]").count(), 7);
+  assert.equal(await page.locator("[data-day]").first().getAttribute("data-day"), "sat");
+  assert.equal(await page.locator("#week-label").innerText(), formatWeekRange(weekKeyFromDate()));
   assert.equal(await page.locator(".today-pill:visible").count(), 1);
   await page.getByRole("button", { name: "Next week", exact: true }).click();
   assert.match(await page.locator("#week-relation").innerText(), /Next week/);
